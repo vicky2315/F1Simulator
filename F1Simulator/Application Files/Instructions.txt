@@ -1,0 +1,3 @@
+Instructions :
+C,V,B and N are camera controls.
+After launching the game you should be able to see two tracks, Monza with 4 difficult level cars and Redbull Ring with 6 easy level cars. Spectate as they fight to cross the finish line first.
