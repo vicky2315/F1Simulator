@@ -42,4 +42,53 @@ o Collisions with track boundaries or other cars.
 o Recording a time 2 seconds more than the previous lap time. 
 o Dropping positions.
 
+## How It Actually Works
+
+Both cars are ML-Agents `Agent` subclasses — `CarController` for the easy car, `CarControllerImproved`
+for the hard car (adds `WheelCollider`s for real suspension/mass/drag). Each takes two discrete
+actions — throttle (back/none/forward) and steer (left/none/right) — and gets a `Heuristic()` fallback
+so you can drive it by hand for testing:
+
+```csharp
+switch (actions.DiscreteActions.Array[0])
+{
+    case 1: rb.AddRelativeForce(Vector3.back * Movespeed * Time.deltaTime, ForceMode.VelocityChange);
+            AddReward(multback); break;
+    case 2: rb.AddRelativeForce(Vector3.forward * (Movespeed / 2) * Time.deltaTime, ForceMode.VelocityChange);
+            AddReward(multfwd); break;
+}
+```
+
+Rewards come straight off collisions and checkpoints — hit the wrong checkpoint and it's a penalty, hit
+a wall and it's a penalty, cross the finish line and you get a lap-completion reward plus a bonus if
+that lap beat your best:
+
+```csharp
+if (directionDot > 0) { AddReward(0.5f); }              // correct checkpoint
+else { AddReward(-5.0f); checkPointList.Remove(other.gameObject); }  // wrong checkpoint
+
+if (other.gameObject.tag == "Final") { AddReward(5.0f); AddReward(BetterLapReward); EndEpisode(); }
+```
+
+`LapTimer` decides that lap bonus by comparing against the car's own best time:
+
+```csharp
+if (lapTime <= bestLapTime) { bestLapTime = lapTime; isBetter = 3.0f; }
+else if (lapTime - bestLapTime < 1.5f) { isBetter = 0.0f; }
+else { isBetter = -3.0f; }
+```
+
+DRS is a raycast check, not a scripted zone trigger — three rays (center/left/right) look for a car
+ahead within range while inside a DRS zone, and only then apply the speed boost:
+
+```csharp
+if (Physics.Raycast(rayStartCenter, transform.forward, out hit, drsRange) && hit.transform.CompareTag("Car"))
+    carAhead = hit.transform;
+```
+
+`RaceManager` is a singleton tracking every car's position and lap time so the leaderboard and reward
+functions (like the position-based ones above) all read from one shared source of truth.
+
+## Author
+Vignesh Suresh — [portfolio](https://vicky2315.github.io)
 
